@@ -29,7 +29,7 @@ stepsPerDay  <- aggregate(x=activityData[c("steps")],
 ```
 
 #### Histogram of steps per day
-```{r stepsPerDayPlot, fig.height=4}
+```{r stepsPerDayPlot, fig.height=5}
 hist(stepsPerDay$steps, freq=T,
      main="Steps Taken Per Day",
      xlab="Steps Taken", ylab="Frequency")
@@ -103,7 +103,7 @@ dim(activityData2[is.na(activityData2$steps) == TRUE, ])[1]
 ```
 
 #### Histogram of steps per day without missing values for steps
-```{r missingValsFillHist, echo=TRUE}
+```{r missingValsFillHist, echo=TRUE, fig.height=5}
 stepsPerDay2 <- aggregate(x=activityData2[c("steps")], 
                           FUN=function(s)sum(as.numeric(s)), 
                           by = list(day = activityData2$date))
