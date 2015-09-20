@@ -1,25 +1,147 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
-  html_document:
-    keep_md: true
+html_document:
+keep_md: true
 ---
 
-
+## Assumptions
+  1. Repository has been cloned. 
+  2. Activity data has been extracted.
+  3. Your working directory has been set accordingly.
+ 
 ## Loading and preprocessing the data
+```{r load,echo=TRUE}
+if (!file.exists("activity.csv")) {
+  unzip("activity.zip")
+}
 
-
+activityData <- read.csv("activity.csv")
+activityData$interval  <- as.numeric(activityData$interval)
+```
 
 ## What is mean total number of steps taken per day?
+#### Total number of steps per day
+```{r calcStepsPerDay,echo=TRUE}
+stepsPerDay  <- aggregate(x=activityData[c("steps")], 
+                          FUN=sum, 
+                          by = list(day = activityData$date))
+```
 
+#### Histogram of steps per day
+```{r stepsHist, fig.height=4}
+hist(stepsPerDay$steps, freq=T,
+     main="Steps Taken Per Day",
+     xlab="Steps Taken", ylab="Frequency")
+```
+
+#### Mean and median of the total number of steps taken per day
+```{r meanMed, echo=TRUE}
+mean(stepsPerDay$steps, na.rm=T)
+median(stepsPerDay$steps, na.rm=T)
+```
 
 
 ## What is the average daily activity pattern?
+#### Interval vs.  average number of steps taken per day
+##### Using dplyr for manipulating our data
+```{r activityPatterLoadDplyr, echo=TRUE, resuls="hide"}
+library("dplyr")
+```
 
+```{r activityPatterPlot, echo=TRUE, fig.height=5}
+avgStepsPerInterval <- aggregate(x=activityData[c("steps")],
+                                 FUN=function(e) { mean(e, na.rm=T)},
+                                 by = list(interval = activityData$interval))
+avgStepsPerInterval  <- rename(avgStepsPerInterval, mean.steps = steps)
 
+plot(avgStepsPerInterval, type="l",
+     main="Average Steps Take", xlab="Interval", ylab="Avg. Steps")
+```
+
+#### Interval with max number of steps
+```{r activityPatterMaxSteps, echo=TRUE}
+avgStepsPerInterval[which.max(avgStepsPerInterval$mean.steps), ]$interval
+```
 
 ## Imputing missing values
+Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data
+
+#### Total number of missing values
+```{r missingValsTotal, echo=TRUE}
+dim(activityData[is.na(activityData$steps) == TRUE, ])[1]
+dim(activityData[is.na(activityData$date) == TRUE, ])[1]
+dim(activityData[is.na(activityData$interval) == TRUE, ])[1]
+```
+
+#### Filling in missing values.
+Will use the mean steps per interval to fill in missing steps (coded as NA). The following function encapsulates the logic to accomplish this.
+```{r missingValsFillFunc, echo=TRUE}
+FillNaWithMeanOfInterval  <- function(x) {
+  steps  <- x[1]
+  interval  <- x[3]
+  
+  if(is.na(steps)) {
+    avg  <- avgStepsPerInterval[as.numeric(avgStepsPerInterval$interval) == as.numeric(interval), ]
+    avg$mean.steps
+  } else {
+    steps
+  }  
+}
+```
+
+#### New dataset with missing values of steps filled in with the mean steps for interval
+```{r missingValsFillCall, echo=TRUE}
+activityData2  <- activityData
+activityData2$steps  <- apply(activityData2, 1, FUN=FillNaWithMeanOfInterval)
+```
 
 
+#### Verify we don't have any missing values for the steps variable
+```{r missingValsFillVerify, echo=TRUE}
+dim(activityData2[is.na(activityData2$steps) == TRUE, ])[1]
+```
+
+#### Histogram of steps per day without missing values for steps
+```{r missingValsFillHist, echo=TRUE}
+stepsPerDay2 <- aggregate(x=activityData2[c("steps")], 
+                          FUN=function(s)sum(as.numeric(s)), 
+                          by = list(day = activityData2$date))
+hist(stepsPerDay2$steps, freq=T,
+     main="Steps Taken Per Day",
+     xlab="Steps Taken")
+```     
+
+#### Mean and median of the total number of steps taken per day without missing values for steps
+```{r missingValsFillMean, echo=TRUE}
+mean(stepsPerDay2$steps)
+median(stepsPerDay2$steps)
+```
+The values for mean and median from the second dataset, are not so much different from the original dataset which had missing values.
+I suspect that the strategy used to fill in missing values was not effective for the shape of our original data set. The impact was negligible.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+#### Add a new factor variable to denote if date is weekday or weekend. Variable will be named ''sow'' for segment of week.
+```{r diffsInActPatAddFactor, echo=TRUE}
+activityData2$sow <- ifelse(weekdays.Date(as.Date(activityData2$date)) 
+                            %in% c("Saturday", "Sunday"),
+                            "Weekend", "Weekday")
+head(activityData2)                 
+```
+
+#### Time series plot (i.e. type = "l") of the 5-minute interval vs. the average number of steps taken, averaged across all weekday days or weekend days.
+Load lattice graphing library
+```{r diffsInActPatAddLattice, echo=TRUE}
+library("lattice")
+```
+
+```{r diffsInActPatAddPlot, echo=TRUE}
+d3  <- aggregate(steps ~ interval+sow, 
+                 data=activityData2, 
+                 FUN=function(e) mean(as.numeric(e)))
+
+xyplot(steps ~ interval | sow, data = d3, type="l", layout=c(1,2))
+
+```
+
+Based on this graph, it seems that there are some differences between weekdays and weekends.
