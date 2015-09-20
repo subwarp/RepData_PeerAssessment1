@@ -113,3 +113,4 @@ d2AvgStepsPerInterval <- aggregate(x=d2[c("steps")], mean,
 d2AvgStepsPerInterval  <- rename(d2AvgStepsPerInterval, mean.steps = steps)
 
 d2AvgStepsPerInterval[which.max(d2AvgStepsPerInterval$steps), ]$interval
+
