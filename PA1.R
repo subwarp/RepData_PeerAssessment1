@@ -1,5 +1,9 @@
 library("dplyr")
-library(ggplot2)
+library("lattice")
+
+library(logging)
+basicConfig()
+
 
 ## 1 Loading and preprocessing the data
 # 1.1 Load the data (i.e. read.csv())
@@ -11,6 +15,7 @@ d <- read.csv("activity.csv")
 
 
 # 1.2 Process/transform the data (if necessary) into a format suitable for your analysis
+### Total 
 
 ## 2 What is mean total number of steps taken per day?
 # 2.1 Calculate the total number of steps taken per day
@@ -42,7 +47,6 @@ avgStepsPerInterval  <- rename(avgStepsPerInterval, mean.steps = steps)
 plot(avgStepsPerInterval, type="l",
      main="Average Steps Take", xlab="Interval", ylab="Avg. Steps")
 str(avgStepsPerInterval)
-summarise(avgStepsPerInterval)
 
 # 3.2 Which 5-minute interval, on average across all the days in the dataset,
 # contains the maximum number of steps?
@@ -52,30 +56,30 @@ avgStepsPerInterval[which.max(avgStepsPerInterval$mean.steps), ]$interval
 # 4.1 Calculate and report the total number of missing values in the dataset
 # (i.e. the total number of rows with NAs)
 d.na  <- filter(d, is.na(steps))
-# nas  <- d[is.na(d$steps) == TRUE, ]
+# d.na  <- d[is.na(d$steps) == TRUE, ]
 
 # 4.2 Devise a strategy for filling in all of the missing values in the dataset.
 # The strategy does not need to be sophisticated. For example, you could use the
 # mean/median for that day, or the mean for that 5-minute interval, etc.
 
 # Could us but assignment seems to not want it. library("zoo")
+FillNaWithMeanOfInterval  <- function(x) {
+  steps  <- x[1]
+  interval  <- x[3]
+  
+  if(is.na(steps)) {
+    avg  <- avgStepsPerInterval[as.numeric(avgStepsPerInterval$interval) == as.numeric(interval), ]
+    avg$mean.steps
+  } else {
+    steps
+  }  
+}
 
 
-# create test set
-t <- head(d, 10)
-t <- rbind(t, tail(d[which(d$steps > 0), ]))
-# t[is.na(t$steps), ] // Selects only rows that have NA for steps
+# Create a new dataset that is equal to the original dataset but with the missing data filled in.
+d2  <- d
+d2$steps  <- apply(d2, 1, FUN=FillNaWithMeanOfInterval)
 
-
-t[is.na(t$steps)] <- avgStepsPerInterval$interval == t$interval
-avgStepsPerInterval$interval == t[t$interval == 0]
-
-ifelse(is.na(t$steps), avgStepsPerInterval[t$interval], t$steps)
-
-d2 <- d
-d2$steps <- ifelse(is.na(d$steps),
-            avgStepsPerInterval[avgStepsPerInterval$interval == d$interval, ]$mean.steps,
-            d$steps)
 
 d2StepsPerDay <- aggregate(x=d2[c("steps")], FUN=sum, by = list(day = d2$date))
 
@@ -97,8 +101,8 @@ median(d2StepsPerDay$steps, na.rm=T)
 #t <- rbind(t, tail(d[which(weekdays.Date(as.Date(d$date)) == "Saturday"), ]))
 #t
 
-
-d2$sow <- ifelse(weekdays.Date(as.Date(t$date)) %in% c("Saturday", "Sunday"),
+# Add factor to describe which segment of week date falls on. 
+d2$sow <- ifelse(weekdays.Date(as.Date(d2$date)) %in% c("Saturday", "Sunday"),
                  "Weekend", "Weekday")
 
 # 5.2 Make a panel plot containing a time series plot (i.e. type = "l") of the
@@ -107,10 +111,13 @@ d2$sow <- ifelse(weekdays.Date(as.Date(t$date)) %in% c("Saturday", "Sunday"),
 # GitHub repository to see an example of what this plot should look like using
 # simulated data.
 
-d2AvgStepsPerInterval <- aggregate(x=d2[c("steps")], mean,
-                                 by = list(interval = d2$interval))
 
-d2AvgStepsPerInterval  <- rename(d2AvgStepsPerInterval, mean.steps = steps)
+X-Axis - intervals
+Y-Axis - mean(steps aggregated by sow)
 
-d2AvgStepsPerInterval[which.max(d2AvgStepsPerInterval$steps), ]$interval
+d3  <- aggregate(steps ~ interval+sow, 
+                 data=d2, 
+                 FUN=function(e) mean(as.numeric(e)))
+
+xyplot(steps ~ interval | sow, data = d3, type="l", layout=c(1,2))
 
